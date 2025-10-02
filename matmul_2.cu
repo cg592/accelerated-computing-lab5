@@ -503,9 +503,7 @@ void write_json_results(
 
 int main(int argc, char **argv) {
     std::string test_data_dir = ".";
-    if (char *c_str_test_data_dir = std::getenv("MATMUL_TEST_DATA_DIR_2")) {
-        test_data_dir = c_str_test_data_dir;
-    }
+
 
     auto configs = std::vector<BenchmarkConfig>{
         {3072, 3072, 3072},
