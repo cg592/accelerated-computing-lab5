@@ -34,8 +34,12 @@ __device__ inline void cp_async4(void *smem_ptr, const void *glob_ptr) {
         "n"(BYTES));
 }
 
-__device__ __forceinline__ void async_memcpy_waitall() {
-    asm volatile("cp.async.wait_all;\n" ::);
+__device__ __forceinline__ void async_commit_group() {
+    asm volatile("cp.async.commit_group;\n" ::)
+}
+
+template <int N> __device__ __forceinline__ void async_wait_pending() {
+    asm volatile("cp.async.wait_group %0;\n" ::"n"(N))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -68,7 +72,8 @@ __device__ __forceinline__ void async_memcpy_waitall() {
     ////////////////////////////////////////////////////////////////////////////////
     // GPU Implementation with Reuse in L1/Shmem and Registers (Baseline from Lab 4)
 
-    #define HAS_LAB_4_BASELINE_IMPL // <~~ keep this line if you want to benchmark your Lab 4 kernel!
+    #define HAS_LAB_4_BASELINE_IMPL // <~~ keep this line if you want to benchmark your
+   Lab 4 kernel!
 
     namespace matmul_l1_reg {
 
