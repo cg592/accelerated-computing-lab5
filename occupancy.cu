@@ -97,7 +97,7 @@ int main() {
             shared_mem);
 
         float occupancy = ((numBlocks * threads / 32) / 48.0f) * 100.0f;
-        int bytes_per_thread = TILE * (int)sizeof(float) * 48 * 64 * 2 * numBlocks;
+        int bytes_per_thread = TILE * (int)sizeof(float) * 48 * 64 * numBlocks;
 
         printf(
             "%-12d %-10.3f %-12.3f %-12.1f %-10.1f %-10d %-14d\n",
