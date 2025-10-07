@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <cstdint>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Simple Memcpy Kernel
@@ -22,6 +23,27 @@ template <int TILE> __global__ void memcpy(float *dst, const float *src) {
     for (int i = 0; i < TILE; i++) {
         dst[index + i * blockDim.x] = a[i];
     }
+
+//     int iblock = blockIdx.x + blockIdx.y * gridDim.x;
+//     int index = threadIdx.x + TILE * iblock * blockDim.x;
+
+//     float4* dst4 = reinterpret_cast<float4*>(dst);
+//     const float4* src4 = reinterpret_cast<const float4*>(src);
+    
+//     const int TILE4 = TILE / 4;
+//     float4 a[TILE4];
+
+//     printf("Kernel configuration: TILE=%d\n", TILE);
+
+// #pragma unroll
+//     for (int i = 0; i < TILE4; i++) {
+//         a[i] = src4[index + i * blockDim.x];
+//     }
+
+// #pragma unroll
+//     for (int i = 0; i < TILE4; i++) {
+//         dst4[index + i * blockDim.x] = a[i];
+//     }
 }
 
 
@@ -29,7 +51,12 @@ template <int TILE> __global__ void memcpy(float *dst, const float *src) {
 // Prelab Question 3: Fill in the shared memory sizes you want to run the
 // kernel with. Changing these values will limit the occupancy of the kernel.
 ////////////////////////////////////////////////////////////////////////////////
-inline std::vector<int> shared_memory_configuration() { return {0}; }
+inline std::vector<int> shared_memory_configuration() { 
+    return {19000}; 
+    // return {7000}; 
+    // return {5000}; 
+    // return {0}; 
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main
@@ -42,11 +69,16 @@ int main() {
     float *src, *dst;
     cudaMalloc(&src, size * sizeof(float));
     cudaMalloc(&dst, size * sizeof(float));
+    
+    // Verify 16-byte alignment for float4 operations
+    if ((uintptr_t)src % 16 != 0 || (uintptr_t)dst % 16 != 0) {
+        printf("Warning: Memory not 16-byte aligned! src=%p, dst=%p\n", src, dst);
+    }
 
     // Host buffer for L2 invalidation
     float *h_src = (float *)malloc(size * sizeof(float));
 
-    const int TILE = 4; // TILE size for memcpy kernel
+    const int TILE = 8; // TILE size for memcpy kernel
     const int threads = 64;
     const int blocks = (size + TILE * threads - 1) / (TILE * threads);
 
@@ -80,6 +112,8 @@ int main() {
         // Benchmark
         cudaEventRecord(start);
         memcpy<TILE><<<blocks, threads, shared_mem>>>(dst, src);
+        // test return value
+        // printf("return value: %d\n", cudaGetLastError());
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
 
