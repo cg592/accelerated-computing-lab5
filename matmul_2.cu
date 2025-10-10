@@ -35,11 +35,11 @@ __device__ inline void cp_async4(void *smem_ptr, const void *glob_ptr) {
 }
 
 __device__ __forceinline__ void async_commit_group() {
-    asm volatile("cp.async.commit_group;\n" ::)
+    asm volatile("cp.async.commit_group;\n" ::);
 }
 
 template <int N> __device__ __forceinline__ void async_wait_pending() {
-    asm volatile("cp.async.wait_group %0;\n" ::"n"(N))
+    asm volatile("cp.async.wait_group %0;\n" ::"n"(N));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -287,6 +287,10 @@ void run_config(
         CUDA_CHECK(cudaMemset(workspace_gpu, 0, workspace_size));
     }
 
+    void *flush_gpu = nullptr;
+    CUDA_CHECK(cudaMalloc(&flush_gpu, 1024*1024*64));
+    CUDA_CHECK(cudaMemset(flush_gpu, 1, 1024*1024*64));
+
     if (phase == Phase::BENCHMARK) {
         printf("  %6d  %6d  %6d", size_i, size_j, size_k);
     } else {
@@ -325,18 +329,35 @@ void run_config(
             printf("  %9s  %7s", "-", "-");
         }
     } else {
-        double target_time_ms = 200.0;
-        double elapsed_ms = benchmark_ms(
-            target_time_ms,
-            4,
-            [&]() {
-                if (workspace_size > 0) {
-                    CUDA_CHECK(cudaMemset(workspace_gpu, 0, workspace_size));
-                }
-            },
-            [&]() {
-                Impl::run(size_i, size_j, size_k, a_gpu, b_gpu, c_gpu, workspace_gpu);
-            });
+        double target_time_ms = 40.0;
+        double elapsed_ms = 0.0;
+        if (phase == Phase::BENCHMARK) {
+            elapsed_ms = benchmark_ms(
+                target_time_ms,
+                1,
+                [&]() {
+                    if (workspace_size > 0) {
+                        CUDA_CHECK(cudaMemset(workspace_gpu, 0, workspace_size));
+                    }
+                    CUDA_CHECK(cudaMemset(flush_gpu, 1, 1024*1024*64));
+                },
+                [&]() {
+                    Impl::run(size_i, size_j, size_k, a_gpu, b_gpu, c_gpu, workspace_gpu);
+                });
+        } else {
+            elapsed_ms = benchmark_ms(
+                target_time_ms,
+                1,
+                [&]() {
+                    if (workspace_size > 0) {
+                        CUDA_CHECK(cudaMemset(workspace_gpu, 0, workspace_size));
+                    }
+                    CUDA_CHECK(cudaMemset(flush_gpu, 1, 1024*1024*64));
+                },
+                [&]() {
+                    Impl::run(size_i, size_j, size_k, a_gpu, b_gpu, c_gpu, workspace_gpu);
+                }); 
+        }
 
         if (phase == Phase::BENCHMARK) {
             double tflop = 2.0 * size_i * size_k * size_j * 1e-12;
@@ -351,6 +372,7 @@ void run_config(
     CUDA_CHECK(cudaFree(a_gpu));
     CUDA_CHECK(cudaFree(b_gpu));
     CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(flush_gpu));
     if (workspace_size > 0) {
         CUDA_CHECK(cudaFree(workspace_gpu));
     }
